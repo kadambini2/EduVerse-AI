@@ -5,7 +5,6 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 from PIL import Image
 from google import genai
 from google.genai import types
@@ -367,16 +366,11 @@ with tab6:
     if not scores_df.empty:
         col_db_left, col_db_right = st.columns([1, 1])
         with col_db_left:
-            st.subheader("Mastery Performance Plot")
-            fig = px.bar(
-                scores_df,
-                x='subject',
-                y='score',
-                color='subject',
-                title="Recent Test Scores (%)",
-                range_y=[0, 100]
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            st.subheader("Mastery Performance Chart")
+            # Calculate percentage for native bar chart rendering
+            chart_df = scores_df.copy()
+            chart_df['Score (%)'] = (chart_df['score'] / chart_df['total']) * 100
+            st.bar_chart(chart_df.set_index('subject')['Score (%)'])
             
         with col_db_right:
             st.subheader("Database Audit Table")
