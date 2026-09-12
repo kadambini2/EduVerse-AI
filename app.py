@@ -1,13 +1,14 @@
 import os
 import json
 import sqlite3
+import base64
+import urllib.request
+import urllib.error
 from datetime import datetime
 import streamlit as st
 import pandas as pd
-import numpy as np
 from PIL import Image
-from google import genai
-from google.genai import types
+import io
 
 # -----------------------------------------------------------------------------
 # 1. DATABASE SETUP & PERSISTENCE (SQLite)
@@ -80,7 +81,39 @@ def get_scores():
 init_db()
 
 # -----------------------------------------------------------------------------
-# 2. STREAMLIT CONFIGURATION & STYLING
+# 2. DIRECT GEMINI API CALLER (REST API via urllib)
+# -----------------------------------------------------------------------------
+def call_gemini_api(api_key, contents, system_instruction=None, model="gemini-2.5-flash"):
+    """
+    Direct HTTP REST call to Gemini API eliminating third-party SDK dependencies.
+    """
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    
+    payload = {
+        "contents": contents
+    }
+    
+    if system_instruction:
+        payload["system_instruction"] = {
+            "parts": [{"text": system_instruction}]
+        }
+        
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_body = response.read().decode('utf-8')
+            res_json = json.loads(res_body)
+            return res_json['candidates'][0]['content']['parts'][0]['text']
+    except urllib.error.HTTPError as e:
+        error_res = e.read().decode('utf-8')
+        raise Exception(f"HTTP Error {e.code}: {error_res}")
+    except Exception as e:
+        raise Exception(f"API Error: {str(e)}")
+
+# -----------------------------------------------------------------------------
+# 3. STREAMLIT CONFIGURATION & STYLING
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="EduVerse AI - All-in-One Platform",
@@ -93,7 +126,6 @@ st.markdown("""
 <style>
     .main-title { font-size: 2.3rem; color: #1E88E5; font-weight: 800; text-align: center; margin-bottom: 0px; }
     .subtitle { font-size: 1.1rem; color: #555555; text-align: center; margin-bottom: 25px; }
-    .card { background-color: #f8f9fa; border-radius: 10px; padding: 20px; border-left: 5px solid #1E88E5; margin-bottom: 15px; }
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] { padding-left: 16px; padding-right: 16px; font-weight: 600; }
 </style>
@@ -103,7 +135,7 @@ st.markdown("<div class='main-title'>🎓 EduVerse AI</div>", unsafe_allow_html=
 st.markdown("<div class='subtitle'>Unified AI-Powered Ecosystem for Personalized Learning & Teaching</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 3. GEMINI API SETUP
+# 4. API KEY SETUP
 # -----------------------------------------------------------------------------
 st.sidebar.title("⚙️ Global Settings")
 
@@ -115,17 +147,10 @@ if not api_key:
     elif os.environ.get("GEMINI_API_KEY"):
         api_key = os.environ.get("GEMINI_API_KEY")
 
-client = None
 if api_key:
-    try:
-        client = genai.Client(api_key=api_key)
-        st.sidebar.success("✅ Gemini API Active")
-    except Exception as e:
-        st.sidebar.error(f"API Error: {e}")
+    st.sidebar.success("✅ Gemini API Key Set")
 else:
     st.sidebar.warning("⚠️ Enter Gemini API Key to enable AI features.")
-
-MODEL_NAME = "gemini-2.5-flash"
 
 # Sidebar Quick Actions
 st.sidebar.divider()
@@ -137,7 +162,7 @@ if st.sidebar.button("Reset Chat Logs"):
     st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. MODULE TABS
+# 5. MODULE TABS
 # -----------------------------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🧠 AI Tutor", 
@@ -169,7 +194,7 @@ with tab1:
         with st.chat_message("user"):
             st.write(prompt)
             
-        if client:
+        if api_key:
             try:
                 sys_instruct = (
                     "You are a helpful Socratic tutor. Never reveal the direct answer immediately. "
@@ -178,22 +203,14 @@ with tab1:
                 )
                 
                 formatted_contents = [
-                    types.Content(
-                        role="user" if m["role"] == "user" else "model",
-                        parts=[types.Part.from_text(text=m["content"])]
-                    ) for m in st.session_state.chat_history
+                    {
+                        "role": "user" if m["role"] == "user" else "model",
+                        "parts": [{"text": m["content"]}]
+                    } for m in st.session_state.chat_history
                 ]
                 
-                response = client.models.generate_content(
-                    model=MODEL_NAME,
-                    contents=formatted_contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=sys_instruct,
-                        temperature=0.7
-                    )
-                )
+                bot_reply = call_gemini_api(api_key, formatted_contents, system_instruction=sys_instruct)
                 
-                bot_reply = response.text
                 st.session_state.chat_history.append({"role": "model", "content": bot_reply})
                 save_chat("model", bot_reply)
                 with st.chat_message("assistant"):
@@ -224,19 +241,34 @@ with tab2:
         st.subheader("AI Analysis & Solution")
         if uploaded_file:
             if st.button("Analyze & Solve Doubt"):
-                if client:
+                if api_key:
                     with st.spinner("Processing image and mathematical expressions..."):
                         try:
-                            res = client.models.generate_content(
-                                model=MODEL_NAME,
-                                contents=[img, extra_query],
-                                config=types.GenerateContentConfig(
-                                    system_instruction="Read any text, formulas, or diagrams in the image. Provide a detailed step-by-step explanation using standard LaTeX formatting for math equations."
-                                )
-                            )
-                            st.markdown(res.text)
+                            # Convert image to Base64
+                            img_byte_arr = io.BytesIO()
+                            img.save(img_byte_arr, format=img.format if img.format else 'PNG')
+                            img_bytes = img_byte_arr.getvalue()
+                            base64_img = base64.b64encode(img_bytes).decode('utf-8')
+                            
+                            mime_type = f"image/{img.format.lower()}" if img.format else "image/png"
+                            
+                            contents = [{
+                                "parts": [
+                                    {"text": extra_query},
+                                    {
+                                        "inline_data": {
+                                            "mime_type": mime_type,
+                                            "data": base64_img
+                                        }
+                                    }
+                                ]
+                            }]
+                            
+                            sys_inst = "Read any text, formulas, or diagrams in the image. Provide a detailed step-by-step explanation using standard LaTeX formatting for math equations."
+                            res_text = call_gemini_api(api_key, contents, system_instruction=sys_inst)
+                            st.markdown(res_text)
                         except Exception as e:
-                            st.error(f"Vision model error: {e}")
+                            st.error(f"Vision error: {e}")
                 else:
                     st.error("Please enter your API key.")
         else:
@@ -260,20 +292,21 @@ with tab3:
     content_format = st.radio("Output Type", ["Multiple Choice Quiz", "Short Answer Assignment", "Study Flashcards"], horizontal=True)
     
     if st.button("Generate Assessment Material"):
-        if client:
+        if api_key:
             with st.spinner("Drafting curriculum content..."):
                 prompt = (
                     f"Create a {content_format} on topic '{subject_input}' for {target_grade} level. "
                     f"Include {num_q} questions along with an explicit answer key and scoring criteria."
                 )
+                contents = [{"parts": [{"text": prompt}]}]
                 try:
-                    res = client.models.generate_content(model=MODEL_NAME, contents=prompt)
+                    res_text = call_gemini_api(api_key, contents)
                     st.success("Generation Complete!")
-                    st.markdown(res.text)
+                    st.markdown(res_text)
                     
                     st.download_button(
                         label="📥 Download Markdown File",
-                        data=res.text,
+                        data=res_text,
                         file_name=f"{subject_input.replace(' ', '_')}_assignment.md",
                         mime="text/markdown"
                     )
@@ -298,16 +331,17 @@ with tab4:
         focus_type = st.selectbox("Primary Focus", ["Balanced Practice & Theory", "Exam Cramming", "Concept Mastery"])
         
     if st.button("Create Personalized Schedule"):
-        if client:
+        if api_key:
             with st.spinner("Optimizing study time blocks..."):
                 prompt = (
                     f"Generate a detailed study timetable leading to {target_date}. "
                     f"Topics: {topics_list}. Daily study limit: {daily_hours} hours. Focus: {focus_type}. "
                     "Include review intervals and break recommendations."
                 )
+                contents = [{"parts": [{"text": prompt}]}]
                 try:
-                    res = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-                    st.markdown(res.text)
+                    res_text = call_gemini_api(api_key, contents)
+                    st.markdown(res_text)
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -327,16 +361,17 @@ with tab5:
         preferred_work = st.multiselect("Preferred Environment", ["Tech Startup", "Corporate Office", "Academic Research", "Remote Work", "Creative Agency"])
         
     if st.button("Generate Career Analysis"):
-        if client:
+        if api_key:
             with st.spinner("Matching career vectors..."):
                 prompt = (
                     f"Student Skills/Interests: {user_skills}. Preferred Environments: {', '.join(preferred_work)}. "
                     "Provide 3 tailored career paths. For each, outline: 1) Essential skills to learn, "
                     "2) Recommended degrees or certifications, and 3) Practical 6-month roadmap."
                 )
+                contents = [{"parts": [{"text": prompt}]}]
                 try:
-                    res = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-                    st.markdown(res.text)
+                    res_text = call_gemini_api(api_key, contents)
+                    st.markdown(res_text)
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -367,7 +402,6 @@ with tab6:
         col_db_left, col_db_right = st.columns([1, 1])
         with col_db_left:
             st.subheader("Mastery Performance Chart")
-            # Calculate percentage for native bar chart rendering
             chart_df = scores_df.copy()
             chart_df['Score (%)'] = (chart_df['score'] / chart_df['total']) * 100
             st.bar_chart(chart_df.set_index('subject')['Score (%)'])
