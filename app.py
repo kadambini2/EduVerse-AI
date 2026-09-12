@@ -3,8 +3,6 @@ import pandas as pd
 import sqlite3
 import datetime
 import random
-from gtts import gTTS
-import io
 
 # -----------------------------------------------------------------------------
 # 1. DATABASE SYSTEM (SQLite Persistency)
@@ -145,7 +143,7 @@ with st.sidebar:
         [
             "🧠 Multi-Persona AI Tutor",
             "⚡ Instant Doubt & Formula Solver",
-            "🎙️ Audio Lecture Engine",
+            "📖 Interactive Lecture & Notes Engine",
             "📝 Exam Simulator & Assessment",
             "🎴 Smart Flashcards Generator",
             "📊 Analytics Dashboard & Audit"
@@ -237,23 +235,26 @@ elif navigation == "⚡ Instant Doubt & Formula Solver":
             st.latex(r"\int x^2 \sin(x) \, dx = -x^2 \cos(x) + 2x \sin(x) + 2\cos(x) + C")
 
 # -----------------------------------------------------------------------------
-# MODULE 3: AUDIO LECTURE ENGINE
+# MODULE 3: INTERACTIVE LECTURE & NOTES ENGINE
 # -----------------------------------------------------------------------------
-elif navigation == "🎙️ Audio Lecture Engine":
+elif navigation == "📖 Interactive Lecture & Notes Engine":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#F472B6;'>🎙️ Autonomous Audio Lecture Generator</h3>
-        <p>Convert lesson scripts into audio lectures using local Text-to-Speech.</p>
+        <h3 style='color:#F472B6;'>📖 Interactive Structured Lecture Notes</h3>
+        <p>Generate clean, formatted smart notes and summaries for efficient revision.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    script = st.text_area("Lesson Script:", "Welcome to EduVerse. AI is transforming personal learning environments.")
-    if st.button("▶️ Generate Audio Lecture", use_container_width=True):
-        tts = gTTS(text=script, lang="en")
-        fp = io.BytesIO()
-        tts.write_to_fp(fp)
-        fp.seek(0)
-        st.audio(fp, format="audio/mp3")
+    topic = st.text_input("Enter Topic for Notes:", "Quantum Computing Basics")
+    script = st.text_area("Lesson Input Text:", "Quantum computing relies on qubits, which can exist in superposition states allowing parallel computation.", height=120)
+    
+    if st.button("📝 Generate Smart Summary Notes", use_container_width=True):
+        st.subheader(f"📌 Executive Summary: {topic}")
+        st.markdown(f"> **Key Concept:** {script}")
+        st.markdown("#### Key Takeaways:")
+        st.markdown("- **Superposition:** Enables qubits to hold multiple states simultaneously.")
+        st.markdown("- **Entanglement:** Connects qubit states instantaneously across distances.")
+        st.markdown("- **Speedup:** Solves complex theoretical problems exponentially faster.")
 
 # -----------------------------------------------------------------------------
 # MODULE 4: EXAM SIMULATOR
