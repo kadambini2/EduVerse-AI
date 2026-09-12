@@ -155,7 +155,7 @@ with st.sidebar:
     st.markdown("<span class='badge-status'>● Offline Engine Active</span>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# HERO HEADER WITH IMAGE INTEGRATION
+# HERO HEADER WITH IMAGE INTEGRATION (FIXED PARAMETER)
 # -----------------------------------------------------------------------------
 c_head, c_img = st.columns([2, 1])
 
@@ -170,7 +170,7 @@ with c_head:
 
 with c_img:
     st.image("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop", 
-             caption="EduVerse AI Visual Canvas", use_column_width=True)
+             caption="EduVerse AI Visual Canvas", use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # MODULE 1: MULTI-PERSONA AI TUTOR
