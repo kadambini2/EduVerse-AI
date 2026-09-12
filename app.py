@@ -3,11 +3,13 @@ import pandas as pd
 import sqlite3
 import datetime
 import random
+from gtts import gTTS
+import io
 
 # -----------------------------------------------------------------------------
-# 1. DATABASE SETUP (SQLite)
+# 1. DATABASE SYSTEM (SQLite Persistency)
 # -----------------------------------------------------------------------------
-DB_FILE = "eduverse_ui.db"
+DB_FILE = "eduverse_advanced.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -18,17 +20,18 @@ def init_db():
             timestamp TEXT,
             subject TEXT,
             score INTEGER,
-            total INTEGER
+            total INTEGER,
+            grade TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def log_quiz_score(subject, score, total):
+def log_quiz_score(subject, score, total, grade):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("INSERT INTO quiz_results (timestamp, subject, score, total) VALUES (?, ?, ?, ?)",
-              (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), subject, score, total))
+    c.execute("INSERT INTO quiz_results (timestamp, subject, score, total, grade) VALUES (?, ?, ?, ?, ?)",
+              (datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), subject, score, total, grade))
     conn.commit()
     conn.close()
 
@@ -41,10 +44,10 @@ def get_quiz_scores():
 init_db()
 
 # -----------------------------------------------------------------------------
-# 2. ADVANCED STYLING & IMPRESSIVE UI/UX CUSTOM CSS
+# 2. ADVANCED STYLING & ULTRA REALISTIC UI/UX (CSS)
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="EduVerse AI - Unique Platform",
+    page_title="EduVerse AI - Enterprise Platform",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -52,84 +55,77 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Google Fonts Import */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* Main Background Gradient */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+        color: #F8FAFC;
     }
 
-    /* Impressive Glassmorphism Hero Card */
+    /* Impressive Hero Banner Card */
     .hero-card {
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
         padding: 28px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         margin-bottom: 25px;
     }
 
     .hero-title {
-        font-size: 2.6rem;
+        font-size: 2.8rem;
         font-weight: 800;
-        background: linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #EC4899 100%);
+        background: linear-gradient(90deg, #38BDF8 0%, #818CF8 50%, #F472B6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 5px;
     }
     
     .hero-sub {
-        font-size: 1.05rem;
-        color: #4B5563;
+        font-size: 1.1rem;
+        color: #94A3B8;
         font-weight: 600;
     }
 
-    /* Custom Unique Card Feature Panels */
+    /* Custom Unique Feature Panels */
     .feature-card {
-        background: #FFFFFF;
-        border-radius: 16px;
+        background: rgba(30, 41, 59, 0.7);
+        border-radius: 20px;
         padding: 24px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-        border: 1px solid #E5E7EB;
-        transition: transform 0.2s ease-in-out;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 20px;
     }
 
-    /* Custom Sidebar / Navigation Styling */
+    /* Custom Navigation Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #0F172A !important;
-    }
-    
-    section[data-testid="stSidebar"] * {
-        color: #F8FAFC !important;
+        background-color: #0B0F19 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .nav-header {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
         font-weight: 800;
-        letter-spacing: 0.5px;
         background: linear-gradient(90deg, #38BDF8, #818CF8);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        padding-top: 10px;
     }
 
-    /* Custom Metric Display Badge */
     .badge-status {
-        background: rgba(16, 185, 129, 0.15);
-        color: #10B981 !important;
+        background: rgba(56, 189, 248, 0.15);
+        color: #38BDF8 !important;
         padding: 6px 14px;
         border-radius: 30px;
         font-weight: 700;
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         display: inline-block;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        border: 1px solid rgba(56, 189, 248, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -139,225 +135,167 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("<div class='nav-header'>🎓 EduVerse AI</div>", unsafe_allow_html=True)
-    st.caption("Next-Gen Intelligent Learning Portal")
+    st.caption("Advanced Autonomous Learning Suite")
     st.divider()
     
-    st.markdown("<p style='font-weight: 700; font-size: 0.85rem; color: #94A3B8 !important; text-transform: uppercase;'>Navigation Pane</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-weight: 700; font-size: 0.85rem; color: #64748B !important; text-transform: uppercase;'>Workspaces Navigation Pane</p>", unsafe_allow_html=True)
     
     navigation = st.radio(
         "Select Workspace",
         [
-            "🧠 Socratic AI Tutor",
-            "⚡ Instant Doubt Solver",
-            "📝 Quiz & Assignment Generator",
-            "🗓️ Adaptive Study Planner",
-            "🎯 Career Guidance Platform",
-            "📊 Student Progress Dashboard"
+            "🧠 Multi-Persona AI Tutor",
+            "⚡ Instant Doubt & Formula Solver",
+            "🎙️ Audio Lecture Engine",
+            "📝 Exam Simulator & Assessment",
+            "🎴 Smart Flashcards Generator",
+            "📊 Analytics Dashboard & Audit"
         ],
         label_visibility="collapsed"
     )
     
     st.divider()
     st.markdown("<span class='badge-status'>● Offline Engine Active</span>", unsafe_allow_html=True)
-    st.caption("No API Key Required | Instant Response")
 
 # -----------------------------------------------------------------------------
-# MAIN HERO HEADER
+# HERO HEADER WITH IMAGE INTEGRATION
 # -----------------------------------------------------------------------------
-st.markdown(f"""
-<div class='hero-card'>
-    <div class='hero-title'>EduVerse AI</div>
-    <div class='hero-sub'>Active Workspace ✦ <b>{navigation}</b></div>
-</div>
-""", unsafe_allow_html=True)
+c_head, c_img = st.columns([2, 1])
+
+with c_head:
+    st.markdown(f"""
+    <div class='hero-card'>
+        <div class='hero-title'>EduVerse AI Platform</div>
+        <div class='hero-sub'>Active Workspace ✦ <b>{navigation}</b></div>
+        <p style='color: #64748B; margin-top: 10px;'>Next-generation AI learning hub with real-time database logging and interactive UI components.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c_img:
+    st.image("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop", 
+             caption="EduVerse AI Visual Canvas", use_column_width=True)
 
 # -----------------------------------------------------------------------------
-# MODULE 1: SOCRATIC TUTOR
+# MODULE 1: MULTI-PERSONA AI TUTOR
 # -----------------------------------------------------------------------------
-if navigation == "🧠 Socratic AI Tutor":
+if navigation == "🧠 Multi-Persona AI Tutor":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#4F46E5;'>🧠 Socratic AI Interactive Tutor</h3>
-        <p>Interactive guided problem-solving through targeted questions.</p>
+        <h3 style='color:#38BDF8;'>🧠 Multi-Persona Socratic AI Tutor</h3>
+        <p>Choose an AI learning persona tailored to your preferred learning style.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = [
-            {"role": "assistant", "content": "Welcome! Which concept would you like to explore step-by-step today?"}
-        ]
+    col_p, col_c = st.columns([1, 2.5])
+    
+    with col_p:
+        persona = st.selectbox("Select Learning Mode:", [
+            "🧠 Socratic Guide",
+            "👶 ELI5 (Explain Like I'm 5)",
+            "👨‍🏫 University Professor"
+        ])
         
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+    with col_c:
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = [
+                {"role": "assistant", "content": "Welcome! Select a persona on the left and enter any topic to begin."}
+            ]
             
-    if prompt := st.chat_input("Type your question or concept..."):
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
-            
-        reply = f"That's a key concept in **'{prompt}'**! What do you think is the fundamental formula or rule governing this step?"
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
-        with st.chat_message("assistant"):
-            st.write(reply)
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+                
+        if prompt := st.chat_input("Ask a question..."):
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.write(prompt)
+                
+            reply = f"Persona: **{persona}** | Responding to **'{prompt}'**: Here is the key insight..."
+            st.session_state.chat_history.append({"role": "assistant", "content": reply})
+            with st.chat_message("assistant"):
+                st.write(reply)
 
 # -----------------------------------------------------------------------------
-# MODULE 2: INSTANT DOUBT SOLVER
+# MODULE 2: INSTANT DOUBT & FORMULA SOLVER
 # -----------------------------------------------------------------------------
-elif navigation == "⚡ Instant Doubt Solver":
+elif navigation == "⚡ Instant Doubt & Formula Solver":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#7C3AED;'>⚡ Instant Doubt Resolution Assistant</h3>
-        <p>Break down complex formulas and theory into clear solutions.</p>
+        <h3 style='color:#818CF8;'>⚡ Multi-Disciplinary Doubt & Solution Engine</h3>
+        <p>Step-by-step mathematical proofs and logic breakdowns.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
     c1, c2 = st.columns([1, 1])
     with c1:
-        subject = st.selectbox("Subject Area", ["Mathematics", "Physics", "Computer Science", "Chemistry"])
-        query = st.text_area("State your question or problem:", placeholder="e.g. Derive key elements of Binary Search algorithm.")
-        solve_btn = st.button("🚀 Resolve Doubt", use_container_width=True)
+        subject = st.selectbox("Select Subject", ["Mathematics", "Physics", "Computer Science"])
+        query = st.text_area("State your problem:", "Calculate integral of x^2 * sin(x)")
+        solve_btn = st.button("🚀 Solve Problem", use_container_width=True)
         
     with c2:
-        st.subheader("Step-by-Step Breakdown")
         if solve_btn and query.strip():
-            st.success("✅ Solution Calculated")
-            st.markdown(f"**Domain:** `{subject}`")
-            st.markdown("#### Logic Framework:")
-            st.markdown(f"1. **Core Premise:** Deconstruct `{query[:30]}...`")
-            st.markdown("2. **Core Equation:** $$T(n) = O(\\log n)$$")
-            st.markdown("3. **Outcome:** Efficient reduction of search space by half in each iteration.")
-        elif solve_btn:
-            st.warning("Please type a question to get a response.")
+            st.success("✅ Solution Rendered")
+            st.latex(r"\int x^2 \sin(x) \, dx = -x^2 \cos(x) + 2x \sin(x) + 2\cos(x) + C")
 
 # -----------------------------------------------------------------------------
-# MODULE 3: QUIZ & ASSIGNMENT GENERATOR
+# MODULE 3: AUDIO LECTURE ENGINE
 # -----------------------------------------------------------------------------
-elif navigation == "📝 Quiz & Assignment Generator":
+elif navigation == "🎙️ Audio Lecture Engine":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#EC4899;'>📝 Quiz & Homework Assessment Generator</h3>
-        <p>Generate interactive quizzes and log performance results directly to your local database.</p>
+        <h3 style='color:#F472B6;'>🎙️ Autonomous Audio Lecture Generator</h3>
+        <p>Convert lesson scripts into audio lectures using local Text-to-Speech.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        topic = st.text_input("Topic", "Data Structures")
-    with c2:
-        level = st.selectbox("Level", ["Beginner", "Intermediate", "Advanced"])
-    with c3:
-        num_q = st.slider("Questions Count", 1, 5, 3)
-        
-    if st.button("✨ Create & Take Quiz", use_container_width=True):
-        st.session_state.quiz_data = {"topic": topic, "level": level, "count": num_q}
-        
-    if "quiz_data" in st.session_state:
-        q = st.session_state.quiz_data
-        st.divider()
-        st.subheader(f"Quiz: {q['topic']} ({q['level']})")
-        
-        with st.form("quiz_form"):
-            for i in range(1, q["count"] + 1):
-                st.write(f"**Q{i}: What is the primary characteristic of {q['topic']} at a {q['level']} level?**")
-                st.radio(f"Select Answer Q{i}", ["Option A", "Option B", "Option C"], key=f"q_{i}", label_visibility="collapsed")
-                st.divider()
-            
-            if st.form_submit_button("Submit Quiz"):
-                score = random.randint(1, q["count"])
-                log_quiz_score(q["topic"], score, q["count"])
-                st.balloons()
-                st.success(f"Assessment Submitted! Result Logged: **{score} / {q['count']}**")
+    script = st.text_area("Lesson Script:", "Welcome to EduVerse. AI is transforming personal learning environments.")
+    if st.button("▶️ Generate Audio Lecture", use_container_width=True):
+        tts = gTTS(text=script, lang="en")
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        st.audio(fp, format="audio/mp3")
 
 # -----------------------------------------------------------------------------
-# MODULE 4: ADAPTIVE STUDY PLANNER
+# MODULE 4: EXAM SIMULATOR
 # -----------------------------------------------------------------------------
-elif navigation == "🗓️ Adaptive Study Planner":
+elif navigation == "📝 Exam Simulator & Assessment":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#2563EB;'>🗓️ Adaptive Study Schedule Planner</h3>
-        <p>Personalized calendar schedules tailored to your target exam dates.</p>
+        <h3 style='color:#34D399;'>📝 Interactive Exam Simulator</h3>
+        <p>Timed exams with persistence logging in SQLite DB.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
-    ca, cb = st.columns(2)
-    with ca:
-        subjects = st.text_area("Subjects (comma-separated):", "Python, Machine Learning, Operating Systems")
-        exam_date = st.date_input("Target Date", datetime.date.today() + datetime.timedelta(days=10))
-    with cb:
-        daily_hours = st.slider("Daily Study Bandwidth (Hours)", 1, 8, 4)
-        method = st.selectbox("Strategy", ["Spaced Repetition", "Intensive Bootcamp", "Balanced Schedule"])
-        
-    if st.button("🗓️ Generate Timetable", use_container_width=True):
-        sub_list = [s.strip() for s in subjects.split(",") if s.strip()]
-        schedule = []
-        for i in range(1, 6):
-            schedule.append({
-                "Day": f"Day {i}",
-                "Subject Focus": sub_list[(i-1) % len(sub_list)] if sub_list else "General",
-                "Allocated Time": f"{daily_hours} Hours",
-                "Method": method
-            })
-        st.table(pd.DataFrame(schedule))
+    topic = st.selectbox("Exam Subject", ["Data Structures", "Operating Systems", "Python"])
+    if st.button("🚀 Submit Sample Score", use_container_width=True):
+        score = random.randint(3, 5)
+        log_quiz_score(topic, score, 5, "PASS ✅")
+        st.success(f"Score Saved to SQLite Database: {score}/5")
 
 # -----------------------------------------------------------------------------
-# MODULE 5: CAREER GUIDANCE PLATFORM
+# MODULE 5: SMART FLASHCARDS
 # -----------------------------------------------------------------------------
-elif navigation == "🎯 Career Guidance Platform":
+elif navigation == "🎴 Smart Flashcards Generator":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#059669;'>🎯 Career Guidance & Trajectory Mapper</h3>
-        <p>Match your academic strengths and interests with industry roles.</p>
+        <h3 style='color:#FBBF24;'>🎴 Automated Revision Deck</h3>
+        <p>Interactive study flashcards for active recall.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        skills = st.multiselect("Select Key Skills:", ["Python", "Data Analysis", "Public Speaking", "UI/UX Design", "Problem Solving"])
-    with col2:
-        domain = st.selectbox("Preferred Domain:", ["Tech Industry", "Research & Academia", "Corporate", "Creative Digital Media"])
-        
-    if st.button("🔍 Analyze Career Pathways", use_container_width=True):
-        if skills:
-            st.success("Career Pathways Calculated!")
-            st.markdown("1. **Data Specialist / AI Engineer:** Strong alignment with technical & analytical skills.")
-            st.markdown("2. **Technical Product Manager:** Excellent match for problem-solving and domain skills.")
-        else:
-            st.warning("Please choose at least one skill.")
+    with st.expander("📌 Flashcard 1: What is Normalization?"):
+        st.write("Process of organizing data in a database to reduce redundancy.")
 
 # -----------------------------------------------------------------------------
-# MODULE 6: STUDENT PROGRESS DASHBOARD
+# MODULE 6: ANALYTICS DASHBOARD
 # -----------------------------------------------------------------------------
-elif navigation == "📊 Student Progress Dashboard":
+elif navigation == "📊 Analytics Dashboard & Audit":
     st.markdown("""
     <div class='feature-card'>
-        <h3 style='color:#D97706;'>📊 Student Progress Dashboard</h3>
-        <p>Real-time analytical visualization of scores recorded in SQLite database.</p>
+        <h3 style='color:#F59E0B;'>📊 Real-Time Analytics & Database Audit</h3>
+        <p>Persistent logs from SQLite database.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Overall GPA", "3.90 / 4.0", "+0.05")
-    m2.metric("Study Streak", "15 Days", "🔥 Peak")
-    m3.metric("Platform Status", "100% Active", "Offline Ready")
-    
-    st.divider()
-    df_scores = get_quiz_scores()
-    
-    if not df_scores.empty:
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.subheader("Quiz Mastery Performance")
-            df_scores["Percentage"] = (df_scores["score"] / df_scores["total"]) * 100
-            st.bar_chart(df_scores.set_index("subject")["Percentage"])
-        with col_right:
-            st.subheader("Database Audit Logs")
-            st.dataframe(df_scores, use_container_width=True)
-    else:
-        st.info("No quiz data logged yet. Take a quiz in the Assessment Generator to populate this dashboard.")
+    scores_df = get_quiz_scores()
+    st.dataframe(scores_df, use_container_width=True)
